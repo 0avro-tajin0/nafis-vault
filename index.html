@@ -6,12 +6,13 @@
 <title>Vault — Sign in</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
 
-<!-- Firebase SDKs (compat build — simplest to use with plain <script>) -->
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<!-- Firebase SDKs (compat build) — deferred so they don't block first paint -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js" defer></script>
 
 <style>
   :root{
@@ -132,7 +133,7 @@
 
   .panel-head{
     text-align:center;
-    margin-bottom:30px;
+    margin-bottom:28px;
   }
 
   .panel-head h1{
@@ -150,8 +151,9 @@
     line-height:1.6;
   }
 
-  .stage{ display:block; }
+  .stage{ display:block; filter:blur(0); opacity:1; transition:filter .16s ease, opacity .16s ease; }
   .stage.hidden{ display:none; }
+  .stage.stage-enter{ filter:blur(6px); opacity:0; }
 
   .field-label{
     display:block;
@@ -163,10 +165,12 @@
 
   .input-row{
     position:relative;
-    margin-bottom:20px;
+    margin-bottom:16px;
   }
 
-  .input-row input[type="email"]{
+  .input-row input[type="email"],
+  .input-row input[type="password"],
+  .input-row input[type="text"]{
     width:100%;
     background:rgba(255,255,255,0.025);
     border:0.5px solid var(--border-hair);
@@ -179,14 +183,34 @@
     transition:border-color .15s ease, background .15s ease;
   }
 
-  .input-row input[type="email"]::placeholder{ color:var(--text-2); }
+  .input-row input::placeholder{ color:var(--text-2); }
 
-  .input-row input[type="email"]:focus{
+  .input-row input:focus{
     border-color:var(--border-strong);
     background:rgba(255,255,255,0.045);
   }
 
   .input-row input.error{ border-color:var(--danger); }
+
+  .pw-input-row{ position:relative; }
+  .pw-toggle{
+    position:absolute; right:10px; top:50%; transform:translateY(-50%);
+    width:26px; height:26px; border-radius:6px;
+    background:none; border:none; color:var(--text-2); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .pw-toggle:hover{ color:var(--text-0); }
+  .pw-toggle svg{ width:15px; height:15px; }
+
+  .forgot-link{
+    display:block;
+    text-align:right;
+    font-size:12px;
+    color:var(--text-2);
+    cursor:pointer;
+    margin:-6px 0 18px;
+  }
+  .forgot-link:hover{ color:var(--text-1); }
 
   .btn-primary{
     width:100%;
@@ -216,7 +240,6 @@
     font-size:13px;
     margin-bottom:18px;
     line-height:1.6;
-    min-height:0;
   }
   .status-msg.error{ color:var(--danger); }
   .status-msg.success{ color:var(--success); }
@@ -232,6 +255,20 @@
   }
   .sent-icon svg{ width:24px; height:24px; color:var(--accent); }
 
+  .switch-row{
+    text-align:center;
+    margin-top:22px;
+    font-size:12.5px;
+    color:var(--text-2);
+  }
+  .switch-row a{
+    color:var(--grey-1);
+    cursor:pointer;
+    text-decoration:underline;
+    text-decoration-color:rgba(255,255,255,0.2);
+  }
+  .switch-row a:hover{ color:var(--text-0); }
+
   .back-link{
     display:block;
     text-align:center;
@@ -240,7 +277,6 @@
     color:var(--text-2);
     cursor:pointer;
   }
-
   .back-link:hover{ color:var(--text-1); }
 
   .footnote{
@@ -253,7 +289,6 @@
     justify-content:center;
     gap:6px;
   }
-
   .footnote svg{ width:11px; height:11px; opacity:0.7; }
 
   .spinner{
@@ -267,6 +302,8 @@
     margin-right:7px;
   }
   @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .hint{ font-size:11.5px; color:var(--text-2); margin:-10px 0 16px; line-height:1.5; }
 
   @media (max-width:420px){
     .panel{ padding:30px 22px 26px; }
@@ -289,21 +326,32 @@
 
   <div class="panel">
 
-    <!-- STAGE 1: enter email -->
-    <div class="stage" id="stage-email">
+    <!-- STAGE 1: SIGN IN -->
+    <div class="stage" id="stage-signin">
       <div class="panel-head">
         <h1>Sign in</h1>
-        <p>No passwords. We'll email you a secure sign-in link.</p>
+        <p>Welcome back. Enter your email and password.</p>
       </div>
 
-      <div class="status-msg hidden" id="email-status"></div>
+      <div class="status-msg hidden" id="signin-status"></div>
 
-      <label class="field-label" for="email-input">Email address</label>
+      <label class="field-label" for="signin-email">Email address</label>
       <div class="input-row">
-        <input type="email" id="email-input" placeholder="you@example.com" autocomplete="email">
+        <input type="email" id="signin-email" placeholder="you@example.com" autocomplete="email">
       </div>
 
-      <button class="btn-primary" id="send-link-btn" onclick="handleSendLink()">Send sign-in link</button>
+      <label class="field-label" for="signin-password">Password</label>
+      <div class="input-row pw-input-row">
+        <input type="password" id="signin-password" placeholder="Enter password" autocomplete="current-password">
+        <button class="pw-toggle" type="button" onclick="togglePw('signin-password', this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="forgot-link" onclick="goToStage('stage-forgot')">Forgot password?</div>
+
+      <button class="btn-primary" id="signin-btn" onclick="handleSignIn()">Sign in</button>
+
+      <div class="switch-row">Don't have an account? <a onclick="goToStage('stage-signup')">Create one</a></div>
 
       <div class="footnote">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
@@ -311,39 +359,105 @@
       </div>
     </div>
 
-    <!-- STAGE 2: link sent, waiting for click -->
-    <div class="stage hidden" id="stage-sent">
+    <!-- STAGE 2: CREATE ACCOUNT -->
+    <div class="stage hidden" id="stage-signup">
+      <div class="panel-head">
+        <h1>Create account</h1>
+        <p>Set up your vault with an email and password.</p>
+      </div>
+
+      <div class="status-msg hidden" id="signup-status"></div>
+
+      <label class="field-label" for="signup-email">Email address</label>
+      <div class="input-row">
+        <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+
+      <label class="field-label" for="signup-password">Password</label>
+      <div class="input-row pw-input-row">
+        <input type="password" id="signup-password" placeholder="At least 6 characters" autocomplete="new-password">
+        <button class="pw-toggle" type="button" onclick="togglePw('signup-password', this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+
+      <label class="field-label" for="signup-password-confirm">Confirm password</label>
+      <div class="input-row pw-input-row">
+        <input type="password" id="signup-password-confirm" placeholder="Re-enter password" autocomplete="new-password">
+        <button class="pw-toggle" type="button" onclick="togglePw('signup-password-confirm', this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+
+      <button class="btn-primary" id="signup-btn" onclick="handleSignUp()">Create account</button>
+
+      <div class="switch-row">Already have an account? <a onclick="goToStage('stage-signin')">Sign in</a></div>
+    </div>
+
+    <!-- STAGE 3: FORGOT PASSWORD -->
+    <div class="stage hidden" id="stage-forgot">
+      <div class="panel-head">
+        <h1>Reset password</h1>
+        <p>Enter your email and we'll send a reset link.</p>
+      </div>
+
+      <div class="status-msg hidden" id="forgot-status"></div>
+
+      <label class="field-label" for="forgot-email">Email address</label>
+      <div class="input-row">
+        <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+
+      <button class="btn-primary" id="forgot-btn" onclick="handleForgotPassword()">Send reset link</button>
+
+      <div class="back-link" onclick="goToStage('stage-signin')">Back to sign in</div>
+    </div>
+
+    <!-- STAGE 4: RESET LINK SENT -->
+    <div class="stage hidden" id="stage-reset-sent">
       <div class="sent-icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 6l10 7 10-7"/></svg>
       </div>
       <div class="panel-head">
         <h1>Check your email</h1>
-        <p>We sent a sign-in link to <b id="sent-email-display" style="color:var(--text-1);"></b>. Open it on this device to continue.</p>
+        <p>We sent a password reset link to <b id="reset-email-display" style="color:var(--text-1);"></b>.</p>
       </div>
-      <div class="back-link" onclick="goToEmailStage()">Use a different email</div>
+      <div class="back-link" onclick="goToStage('stage-signin')">Back to sign in</div>
     </div>
 
-    <!-- STAGE 3: completing sign-in (shown if URL is a sign-in link) -->
-    <div class="stage hidden" id="stage-completing">
+    <!-- STAGE 5: checking existing session on page load -->
+    <div class="stage hidden" id="stage-checking">
       <div class="panel-head">
-        <h1><span class="spinner"></span>Signing you in…</h1>
-        <p>Verifying your link, one moment.</p>
+        <h1><span class="spinner"></span>One moment…</h1>
+        <p>Checking your session.</p>
       </div>
     </div>
 
   </div>
 </div>
 
-<script src="firebase-config.js"></script>
-<script>
-function showStage(name){
-  ['stage-email','stage-sent','stage-completing'].forEach(id => {
+<script src="firebase-config.js" defer></script>
+<script defer>
+function goToStage(name){
+  const target = document.getElementById(name);
+  const allIds = ['stage-signin','stage-signup','stage-forgot','stage-reset-sent','stage-checking'];
+
+  // Start the new stage blurred+transparent, show it, then let CSS transition it in.
+  target.classList.add('stage-enter');
+  allIds.forEach(id => {
     document.getElementById(id).classList.toggle('hidden', id !== name);
+  });
+  // Force a reflow so the browser registers the "blurred" starting state
+  // before we remove it — otherwise the transition wouldn't be visible.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      target.classList.remove('stage-enter');
+    });
   });
 }
 
-function setStatus(msg, type){
-  const el = document.getElementById('email-status');
+function setStatus(scope, msg, type){
+  const el = document.getElementById(scope + '-status');
   el.textContent = msg;
   el.className = 'status-msg' + (type ? ' ' + type : '') + (msg ? '' : ' hidden');
 }
@@ -352,79 +466,127 @@ function isValidEmail(v){
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 }
 
-function handleSendLink(){
-  const input = document.getElementById('email-input');
-  const email = input.value.trim();
-
-  if(!isValidEmail(email)){
-    input.classList.add('error');
-    setStatus('Please enter a valid email address.', 'error');
-    return;
-  }
-  input.classList.remove('error');
-  setStatus('');
-
-  const btn = document.getElementById('send-link-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Sending…';
-
-  sendVaultSignInLink(email)
-    .then(() => {
-      document.getElementById('sent-email-display').textContent = email;
-      showStage('stage-sent');
-    })
-    .catch((err) => {
-      console.error(err);
-      setStatus(humanizeAuthError(err), 'error');
-    })
-    .finally(() => {
-      btn.disabled = false;
-      btn.textContent = 'Send sign-in link';
-    });
-}
-
-function goToEmailStage(){
-  showStage('stage-email');
+function togglePw(id, btn){
+  const input = document.getElementById(id);
+  input.type = input.type === 'password' ? 'text' : 'password';
 }
 
 function humanizeAuthError(err){
   const code = err && err.code;
-  if(code === 'auth/invalid-email') return 'That email address looks invalid.';
-  if(code === 'auth/missing-android-pkg-name') return 'Configuration error — contact support.';
-  if(code === 'auth/quota-exceeded') return 'Too many attempts. Please try again later.';
-  return 'Something went wrong sending the link. Please try again.';
+  const map = {
+    'auth/invalid-email': 'That email address looks invalid.',
+    'auth/user-not-found': 'No account found with that email.',
+    'auth/wrong-password': 'Incorrect password. Try again.',
+    'auth/invalid-credential': 'Incorrect email or password.',
+    'auth/too-many-requests': 'Too many attempts. Please wait a moment and try again.',
+    'auth/email-already-in-use': 'An account with that email already exists.',
+    'auth/weak-password': 'Password should be at least 6 characters.',
+    'auth/network-request-failed': 'Network error. Check your connection and try again.'
+  };
+  return map[code] || 'Something went wrong. Please try again.';
 }
 
-/* On load: if this page was opened FROM the emailed sign-in link,
-   finish the sign-in automatically and redirect to the dashboard. */
-(function init(){
-  if(auth.isSignInWithEmailLink(window.location.href)){
-    showStage('stage-completing');
-    completeVaultSignInIfPossible()
-      .then((didSignIn) => {
-        if(didSignIn){
-          window.location.href = 'dashboard.html';
-        } else {
-          showStage('stage-email');
-        }
-      })
-      .catch((err) => {
-        console.error(err);
-        showStage('stage-email');
-        setStatus(humanizeAuthError(err) || 'That link is invalid or expired. Please request a new one.', 'error');
-      });
-  } else {
-    // Already signed in? Skip straight to dashboard.
-    auth.onAuthStateChanged((user) => {
-      if(user){
-        window.location.href = 'dashboard.html';
-      }
-    });
-  }
-})();
+/* ============================================================
+   SIGN IN
+   ============================================================ */
+function handleSignIn(){
+  const email = document.getElementById('signin-email').value.trim();
+  const password = document.getElementById('signin-password').value;
 
-document.getElementById('email-input').addEventListener('keydown', (e) => {
-  if(e.key === 'Enter') handleSendLink();
+  if (!isValidEmail(email)){ setStatus('signin', 'Please enter a valid email address.', 'error'); return; }
+  if (!password){ setStatus('signin', 'Please enter your password.', 'error'); return; }
+
+  setStatus('signin', '');
+  const btn = document.getElementById('signin-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Signing in…';
+
+  auth.signInWithEmailAndPassword(email, password)
+    .then(() => {
+      window.location.href = 'dashboard.html';
+    })
+    .catch((err) => {
+      console.error(err);
+      setStatus('signin', humanizeAuthError(err), 'error');
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    });
+}
+
+/* ============================================================
+   CREATE ACCOUNT
+   ============================================================ */
+function handleSignUp(){
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const confirm = document.getElementById('signup-password-confirm').value;
+
+  if (!isValidEmail(email)){ setStatus('signup', 'Please enter a valid email address.', 'error'); return; }
+  if (password.length < 6){ setStatus('signup', 'Password must be at least 6 characters.', 'error'); return; }
+  if (password !== confirm){ setStatus('signup', 'Passwords do not match.', 'error'); return; }
+
+  setStatus('signup', '');
+  const btn = document.getElementById('signup-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Creating account…';
+
+  auth.createUserWithEmailAndPassword(email, password)
+    .then(() => {
+      window.location.href = 'dashboard.html';
+    })
+    .catch((err) => {
+      console.error(err);
+      setStatus('signup', humanizeAuthError(err), 'error');
+      btn.disabled = false;
+      btn.textContent = 'Create account';
+    });
+}
+
+/* ============================================================
+   FORGOT PASSWORD
+   ============================================================ */
+function handleForgotPassword(){
+  const email = document.getElementById('forgot-email').value.trim();
+  if (!isValidEmail(email)){ setStatus('forgot', 'Please enter a valid email address.', 'error'); return; }
+
+  setStatus('forgot', '');
+  const btn = document.getElementById('forgot-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Sending…';
+
+  auth.sendPasswordResetEmail(email)
+    .then(() => {
+      document.getElementById('reset-email-display').textContent = email;
+      goToStage('stage-reset-sent');
+    })
+    .catch((err) => {
+      console.error(err);
+      setStatus('forgot', humanizeAuthError(err), 'error');
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = 'Send reset link';
+    });
+}
+
+/* ============================================================
+   ON LOAD — already signed in? Skip straight to dashboard.
+   ============================================================ */
+goToStage('stage-checking');
+auth.onAuthStateChanged((user) => {
+  if (user){
+    window.location.href = 'dashboard.html';
+  } else {
+    goToStage('stage-signin');
+  }
+});
+
+/* Enter-key submits the active stage's form */
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  if (!document.getElementById('stage-signin').classList.contains('hidden')) handleSignIn();
+  else if (!document.getElementById('stage-signup').classList.contains('hidden')) handleSignUp();
+  else if (!document.getElementById('stage-forgot').classList.contains('hidden')) handleForgotPassword();
 });
 </script>
 
