@@ -16,53 +16,11 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 /* ============================================================
-   EMAIL-LINK (PASSWORDLESS) AUTH HELPERS
-   Flow: user enters email → we email them a sign-in link →
-   they click it → it opens this same site → we finish sign-in.
+   EMAIL + PASSWORD AUTH HELPERS
+   Sign in / sign up / forgot-password are called directly via
+   auth.signInWithEmailAndPassword() etc. from index.html.
+   This just keeps a shared sign-out helper used by dashboard.html.
    ============================================================ */
-
-// IMPORTANT: this must be a URL where THIS app is hosted, and
-// must be added to Firebase Console → Authentication →
-// Settings → Authorized domains.
-// We always point back to the site root (index.html = login page),
-// regardless of which page (index.html or dashboard.html) sent the link.
-const ACTION_CODE_SETTINGS = {
-  url: window.location.origin + '/',
-  handleCodeInApp: true
-};
-
-/**
- * Step 1: send the sign-in link to the given email.
- */
-function sendVaultSignInLink(email) {
-  return auth.sendSignInLinkToEmail(email, ACTION_CODE_SETTINGS).then(() => {
-    // Save email locally so we can complete sign-in without asking again
-    // (needed because the link may be opened on the same device/browser).
-    window.localStorage.setItem('vaultEmailForSignIn', email);
-  });
-}
-
-/**
- * Step 2: call this on page load (index.html). If the current URL is a
- * valid sign-in link, completes the sign-in automatically.
- * Returns a Promise<boolean> — true if a sign-in was completed.
- */
-function completeVaultSignInIfPossible() {
-  if (!auth.isSignInWithEmailLink(window.location.href)) {
-    return Promise.resolve(false);
-  }
-  let email = window.localStorage.getItem('vaultEmailForSignIn');
-  if (!email) {
-    // Link opened on a different device/browser — ask once.
-    email = window.prompt('Please confirm your email to finish signing in');
-  }
-  return auth.signInWithEmailLink(email, window.location.href).then((result) => {
-    window.localStorage.removeItem('vaultEmailForSignIn');
-    // Clean the action-code params out of the URL bar
-    window.history.replaceState({}, document.title, window.location.pathname);
-    return true;
-  });
-}
 
 /**
  * Sign the current user out and send them back to login.
