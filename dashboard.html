@@ -6,12 +6,13 @@
 <title>Vault — Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
 
-<!-- Firebase SDKs (compat build) -->
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<!-- Firebase SDKs (compat build) — deferred so they don't block initial page render -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js" defer></script>
 
 <style>
   /* Auth-gate loading screen — shown until we know the user's sign-in state */
@@ -255,8 +256,8 @@
   /* SLIDE PANEL (add new) */
   .slide-panel-overlay{ position:fixed; inset:0; z-index:70; pointer-events:none; background:rgba(5,5,6,0); transition:background .26s ease; }
   .slide-panel-overlay.show{ background:rgba(5,5,6,0.45); backdrop-filter: blur(2px); }
-  .slide-panel{ position:absolute; top:0; right:0; bottom:0; width:420px; max-width:92vw; background:rgba(16,16,19,0.96); backdrop-filter: blur(22px); border-left:0.5px solid var(--border-strong); box-shadow:-30px 0 70px -20px rgba(0,0,0,0.6); padding:26px 28px 28px; transform:translateX(100%); transition:transform .26s cubic-bezier(.2,.8,.2,1); overflow-y:auto; pointer-events:auto; }
-  .slide-panel-overlay.show .slide-panel{ transform:translateX(0); }
+  .slide-panel{ position:absolute; top:0; right:0; bottom:0; width:420px; max-width:92vw; background:rgba(16,16,19,0.96); backdrop-filter: blur(22px); border-left:0.5px solid var(--border-strong); box-shadow:-30px 0 70px -20px rgba(0,0,0,0.6); padding:26px 28px 28px; transform:translateX(100%); filter:blur(8px); transition:transform .26s cubic-bezier(.2,.8,.2,1), filter .22s ease; overflow-y:auto; pointer-events:auto; }
+  .slide-panel-overlay.show .slide-panel{ transform:translateX(0); filter:blur(0); }
   .slide-panel-overlay.show{ pointer-events:auto; }
   .panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
   .panel-head-icon{ width:36px; height:36px; border-radius:10px; flex-shrink:0; background:rgba(255,255,255,0.05); border:0.5px solid var(--border-hair); display:flex; align-items:center; justify-content:center; margin-bottom:14px; }
@@ -304,9 +305,10 @@
     box-shadow:0 32px 80px -20px rgba(0,0,0,0.8), 0 1px 0 rgba(255,255,255,0.05) inset;
     padding:24px;
     transform:scale(0.94) translateY(8px);
-    transition:transform .22s cubic-bezier(.2,.8,.2,1);
+    filter:blur(8px);
+    transition:transform .22s cubic-bezier(.2,.8,.2,1), filter .18s ease;
   }
-  .detail-overlay.show .detail-modal{ transform:scale(1) translateY(0); }
+  .detail-overlay.show .detail-modal{ transform:scale(1) translateY(0); filter:blur(0); }
 
   .detail-modal-head{
     display:flex; align-items:center; gap:13px; margin-bottom:20px;
@@ -401,6 +403,19 @@
     .item-row-tag{ font-size:10px; padding:2px 7px; }
     .detail-overlay{ align-items:flex-end; padding:0; }
     .detail-modal{ max-width:100%; border-radius:20px 20px 0 0; }
+
+    /* Heavy blur is expensive on mobile GPUs — reduce it everywhere on small screens.
+       Backgrounds stay readable since we raise opacity slightly to compensate. */
+    .panel{ backdrop-filter: blur(8px) saturate(120%); -webkit-backdrop-filter: blur(8px) saturate(120%); }
+    .slide-panel{ backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); background:rgba(16,16,19,0.985); }
+    .detail-modal{ backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); background:rgba(14,14,18,0.99); }
+    .detail-overlay{ backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+    .mobile-nav-drawer{ backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); background:rgba(13,13,16,0.99); }
+    .mobile-nav-overlay{ backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); }
+    .fab-backdrop{ backdrop-filter: none; -webkit-backdrop-filter: none; }
+    .slide-panel-overlay.show{ backdrop-filter: none; -webkit-backdrop-filter: none; }
+    .fab-option-label, .fab-option-btn{ backdrop-filter: none; -webkit-backdrop-filter: none; background:rgba(24,24,28,0.96); }
+    .toast{ backdrop-filter: none; -webkit-backdrop-filter: none; background:rgba(18,18,22,0.98); }
   }
   @media (min-width:901px){
     .mobile-topbar{ display:none; }
@@ -425,11 +440,12 @@
     box-shadow:20px 0 60px -10px rgba(0,0,0,0.7);
     padding:0;
     transform:translateX(-100%);
-    transition:transform .24s cubic-bezier(.2,.8,.2,1);
+    filter:blur(8px);
+    transition:transform .24s cubic-bezier(.2,.8,.2,1), filter .18s ease;
     display:flex; flex-direction:column;
     overflow:hidden;
   }
-  .mobile-nav-overlay.show .mobile-nav-drawer{ transform:translateX(0); }
+  .mobile-nav-overlay.show .mobile-nav-drawer{ transform:translateX(0); filter:blur(0); }
 
   .mnav-header{
     display:flex; align-items:center; gap:10px;
@@ -775,8 +791,8 @@
   </div>
 </div>
 
-<script src="firebase-config.js"></script>
-<script>
+<script src="firebase-config.js" defer></script>
+<script defer>
 /* ============================================================
    IN-MEMORY APP STATE
    Always reflects the latest Firestore snapshot — never edited
