@@ -24,8 +24,10 @@ const db = firebase.firestore();
 // IMPORTANT: this must be a URL where THIS app is hosted, and
 // must be added to Firebase Console → Authentication →
 // Settings → Authorized domains.
+// We always point back to the site root (index.html = login page),
+// regardless of which page (index.html or dashboard.html) sent the link.
 const ACTION_CODE_SETTINGS = {
-  url: window.location.origin + window.location.pathname.replace('dashboard.html', 'login.html'),
+  url: window.location.origin + '/',
   handleCodeInApp: true
 };
 
@@ -41,7 +43,7 @@ function sendVaultSignInLink(email) {
 }
 
 /**
- * Step 2: call this on page load (login.html). If the current URL is a
+ * Step 2: call this on page load (index.html). If the current URL is a
  * valid sign-in link, completes the sign-in automatically.
  * Returns a Promise<boolean> — true if a sign-in was completed.
  */
