@@ -525,7 +525,7 @@
 
   <div class="search-box">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-    <input type="text" id="sidebar-search" name="vault-search-sidebar" placeholder="Search vault..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" oninput="syncSearchInputs(this.value)">
+    <input type="text" id="sidebar-search" name="vault-search-sidebar" placeholder="Search vault..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')" oninput="syncSearchInputs(this.value)">
   </div>
 
   <div class="nav-section">
@@ -591,7 +591,7 @@
   <div class="main-search-row">
     <div class="main-search-box">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-      <input type="text" id="main-search" name="vault-search-main" placeholder="Search by name, username, folder…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" oninput="syncSearchInputs(this.value); toggleSearchClear();">
+      <input type="text" id="main-search" name="vault-search-main" placeholder="Search by name, username, folder…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')" oninput="syncSearchInputs(this.value); toggleSearchClear();">
       <button class="main-search-clear" id="search-clear" onclick="clearSearch()" title="Clear">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
@@ -846,6 +846,14 @@ function startListeners(){
   if (state.unsubItems) state.unsubItems();
   if (state.unsubFolders) state.unsubFolders();
 
+  // Force the search inputs empty on every login. Some browsers (especially
+  // when signed into a Google profile with saved form data) fill these in
+  // a tick or two after the page loads, after our normal checks run — so we
+  // clear immediately AND again after a short delay to catch late autofill.
+  silentClearSearch();
+  setTimeout(silentClearSearch, 300);
+  setTimeout(silentClearSearch, 1000);
+
   state.unsubFolders = watchFolders((folders) => {
     state.folders = folders;
     renderFolders();
@@ -982,6 +990,18 @@ function clearSearch(){
   toggleSearchClear();
   renderItems();
   document.getElementById('main-search').focus();
+}
+
+/* Same as clearSearch() but never steals focus — used for the automatic
+   post-login clears that fight off browser/profile autofill. */
+function silentClearSearch(){
+  const a = document.getElementById('main-search');
+  const b = document.getElementById('sidebar-search');
+  if (a) a.value = '';
+  if (b) b.value = '';
+  state.searchQuery = '';
+  toggleSearchClear();
+  renderItems();
 }
 
 /* ============================================================
