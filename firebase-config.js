@@ -16,11 +16,16 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 /* ============================================================
-   SESSION PERSISTENCE — set to NONE so login never survives a
-   page reload, new tab, or browser restart. Every visit to the
-   site requires signing in again with email + password.
+   SESSION PERSISTENCE — set to SESSION (not NONE).
+   NONE breaks normal navigation: it clears the session on every
+   single page load, including the redirect from index.html to
+   dashboard.html right after signing in — causing an infinite
+   bounce back to login. SESSION keeps you logged in while
+   navigating within the same tab, but clears automatically when
+   the tab/browser is closed — so a fresh login is still required
+   next time you open the site.
    ============================================================ */
-auth.setPersistence(firebase.auth.Auth.Persistence.NONE).catch((err) => {
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch((err) => {
   console.error('Failed to set auth persistence:', err);
 });
 
