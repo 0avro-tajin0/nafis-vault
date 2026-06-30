@@ -9,10 +9,10 @@
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
 
-<!-- Firebase SDKs (compat build) — deferred so they don't block first paint -->
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js" defer></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js" defer></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js" defer></script>
+<!-- Firebase SDKs (compat build) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 
 <style>
   :root{
@@ -436,8 +436,8 @@
   </div>
 </div>
 
-<script src="firebase-config.js" defer></script>
-<script defer>
+<script src="firebase-config.js"></script>
+<script>
 function goToStage(name){
   const target = document.getElementById(name);
   const allIds = ['stage-signin','stage-signup','stage-forgot','stage-reset-sent','stage-checking'];
@@ -571,15 +571,58 @@ function handleForgotPassword(){
 
 /* ============================================================
    ON LOAD — already signed in? Skip straight to dashboard.
+   Defensive: if Firebase fails to load/init (slow network, bad
+   config, blocked CDN, etc.) we must NOT hang forever on
+   "Checking your session" — show a real error + retry instead.
    ============================================================ */
 goToStage('stage-checking');
-auth.onAuthStateChanged((user) => {
-  if (user){
-    window.location.href = 'dashboard.html';
-  } else {
-    goToStage('stage-signin');
+
+let authCheckSettled = false;
+
+// Safety net: if nothing has happened in 8 seconds, something is
+// wrong (Firebase SDK didn't load, bad config, network block, etc).
+const authCheckTimeout = setTimeout(() => {
+  if (authCheckSettled) return;
+  authCheckSettled = true;
+  showStuckError('Taking longer than expected to connect. Check your internet connection.');
+}, 8000);
+
+function showStuckError(message){
+  const stage = document.getElementById('stage-checking');
+  stage.innerHTML = `
+    <div class="panel-head">
+      <h1>Connection problem</h1>
+      <p>${message}</p>
+    </div>
+    <button class="btn-primary" onclick="window.location.reload()">Retry</button>
+  `;
+}
+
+try {
+  if (typeof firebase === 'undefined' || typeof auth === 'undefined') {
+    throw new Error('Firebase failed to load');
   }
-});
+  auth.onAuthStateChanged((user) => {
+    authCheckSettled = true;
+    clearTimeout(authCheckTimeout);
+    if (user){
+      window.location.href = 'dashboard.html';
+    } else {
+      goToStage('stage-signin');
+    }
+  }, (err) => {
+    // onAuthStateChanged error callback (rare, but possible)
+    authCheckSettled = true;
+    clearTimeout(authCheckTimeout);
+    console.error('Auth state error:', err);
+    showStuckError('Could not verify your session. Please try again.');
+  });
+} catch (err) {
+  authCheckSettled = true;
+  clearTimeout(authCheckTimeout);
+  console.error('Firebase init error:', err);
+  showStuckError('Could not connect to the server. Please refresh the page.');
+}
 
 /* Enter-key submits the active stage's form */
 document.addEventListener('keydown', (e) => {
