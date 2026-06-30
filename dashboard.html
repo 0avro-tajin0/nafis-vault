@@ -525,7 +525,7 @@
 
   <div class="search-box">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-    <input type="text" id="sidebar-search" name="vault-search-sidebar" placeholder="Search vault..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')" oninput="syncSearchInputs(this.value)">
+    <input type="text" id="sidebar-search" placeholder="Search vault..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" oninput="syncSearchInputs(this.value)">
   </div>
 
   <div class="nav-section">
@@ -591,7 +591,7 @@
   <div class="main-search-row">
     <div class="main-search-box">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-      <input type="text" id="main-search" name="vault-search-main" placeholder="Search by name, username, folder…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')" oninput="syncSearchInputs(this.value); toggleSearchClear();">
+      <input type="text" id="main-search" placeholder="Search by name, username, folder…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" oninput="syncSearchInputs(this.value); toggleSearchClear();">
       <button class="main-search-clear" id="search-clear" onclick="clearSearch()" title="Clear">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
@@ -798,6 +798,34 @@ const state = {
   unsubFolders: null
 };
 
+/* ============================================================
+   SEARCH-FIELD AUTOFILL FIX (real root cause, not a band-aid)
+   ------------------------------------------------------------
+   Chrome (and most browsers) remembers every value ever typed
+   into an <input>, keyed by that field's `name` attribute (or
+   `id` as a fallback) plus the site's domain — totally separate
+   from address/payment autofill, and `autocomplete="off"` is
+   explicitly ignored by Chrome for this saved-value-suggestion
+   behavior. If a user ever typed their email into this search
+   box once, the browser keeps offering it back forever, on every
+   future page load, regardless of what our JS does afterward.
+
+   The actual fix: give the field a brand new, random `name` on
+   every page load, before the browser ever renders/scans the
+   field. With no matching saved history for a name it's never
+   seen before, there is nothing for the browser to suggest. This
+   runs synchronously at script-parse time (the inputs already
+   exist in the DOM above this <script> tag), so it always wins
+   the race against the browser's autofill pass.
+   ============================================================ */
+(function randomizeSearchFieldNames(){
+  const suffix = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const sidebar = document.getElementById('sidebar-search');
+  const main = document.getElementById('main-search');
+  if (sidebar) sidebar.name = 'q-' + suffix + '-a';
+  if (main) main.name = 'q-' + suffix + '-b';
+})();
+
 const FOLDER_COLORS = ['tag-blue','tag-violet','tag-amber','tag-green','tag-rose'];
 const DOT_COLORS = { 'tag-blue':'c-blue','tag-violet':'c-violet','tag-amber':'c-amber','tag-green':'c-green','tag-rose':'c-rose' };
 
@@ -846,13 +874,9 @@ function startListeners(){
   if (state.unsubItems) state.unsubItems();
   if (state.unsubFolders) state.unsubFolders();
 
-  // Force the search inputs empty on every login. Some browsers (especially
-  // when signed into a Google profile with saved form data) fill these in
-  // a tick or two after the page loads, after our normal checks run — so we
-  // clear immediately AND again after a short delay to catch late autofill.
-  silentClearSearch();
-  setTimeout(silentClearSearch, 300);
-  setTimeout(silentClearSearch, 1000);
+  // Search inputs are deliberately given a randomized `name` attribute at
+  // script-load time (see randomizeSearchFieldNames() below). That's the
+  // real fix for the persistent autofill issue.
 
   state.unsubFolders = watchFolders((folders) => {
     state.folders = folders;
