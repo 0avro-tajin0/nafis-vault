@@ -105,6 +105,12 @@
   .search-box svg{ width:14px; height:14px; color:var(--text-2); flex-shrink:0; }
   .search-box input{ background:none; border:none; outline:none; color:var(--text-0); font-size:13px; font-family:var(--font-body); width:100%; }
   .search-box input::placeholder{ color:var(--text-2); }
+  /* type="search" adds native browser decorations (clear-x, magnifier in some
+     browsers) — hide them since we already render our own icon/clear button. */
+  input[type="search"]::-webkit-search-decoration,
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-results-button,
+  input[type="search"]::-webkit-search-results-decoration{ -webkit-appearance:none; appearance:none; }
 
   .nav-section{ margin-bottom:22px; }
   .nav-label{ font-size:11px; letter-spacing:0.06em; color:var(--grey-3); padding:0 10px; margin-bottom:8px; text-transform:uppercase; }
@@ -525,7 +531,7 @@
 
   <div class="search-box">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-    <input type="text" id="sidebar-search" placeholder="Search vault..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" oninput="syncSearchInputs(this.value)">
+    <input type="search" id="sidebar-search" placeholder="Search vault..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" oninput="syncSearchInputs(this.value)">
   </div>
 
   <div class="nav-section">
@@ -591,7 +597,7 @@
   <div class="main-search-row">
     <div class="main-search-box">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-      <input type="text" id="main-search" placeholder="Search by name, username, folder…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" oninput="syncSearchInputs(this.value); toggleSearchClear();">
+      <input type="search" id="main-search" placeholder="Search by name, username, folder…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" oninput="syncSearchInputs(this.value); toggleSearchClear();">
       <button class="main-search-clear" id="search-clear" onclick="clearSearch()" title="Clear">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
