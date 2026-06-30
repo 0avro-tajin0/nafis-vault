@@ -426,13 +426,6 @@
     </div>
 
     <!-- STAGE 5: checking existing session on page load -->
-    <div class="stage hidden" id="stage-checking">
-      <div class="panel-head">
-        <h1><span class="spinner"></span>One moment…</h1>
-        <p>Checking your session.</p>
-      </div>
-    </div>
-
   </div>
 </div>
 
@@ -440,7 +433,7 @@
 <script>
 function goToStage(name){
   const target = document.getElementById(name);
-  const allIds = ['stage-signin','stage-signup','stage-forgot','stage-reset-sent','stage-checking'];
+  const allIds = ['stage-signin','stage-signup','stage-forgot','stage-reset-sent'];
 
   // Start the new stage blurred+transparent, show it, then let CSS transition it in.
   target.classList.add('stage-enter');
@@ -570,59 +563,620 @@ function handleForgotPassword(){
 }
 
 /* ============================================================
-   ON LOAD — already signed in? Skip straight to dashboard.
-   Defensive: if Firebase fails to load/init (slow network, bad
-   config, blocked CDN, etc.) we must NOT hang forever on
-   "Checking your session" — show a real error + retry instead.
+   ON LOAD — if already signed in, redirect silently to dashboard.
+   Sign-in form is shown by default (no checking screen).
+   Firebase auth check happens in the background.
    ============================================================ */
-goToStage('stage-checking');
-
-let authCheckSettled = false;
-
-// Safety net: if nothing has happened in 8 seconds, something is
-// wrong (Firebase SDK didn't load, bad config, network block, etc).
-const authCheckTimeout = setTimeout(() => {
-  if (authCheckSettled) return;
-  authCheckSettled = true;
-  showStuckError('Taking longer than expected to connect. Check your internet connection.');
-}, 8000);
-
-function showStuckError(message){
-  const stage = document.getElementById('stage-checking');
-  stage.innerHTML = `
-    <div class="panel-head">
-      <h1>Connection problem</h1>
-      <p>${message}</p>
-    </div>
-    <button class="btn-primary" onclick="window.location.reload()">Retry</button>
-  `;
-}
-
-try {
+window.addEventListener('load', function() {
   if (typeof firebase === 'undefined' || typeof auth === 'undefined') {
-    throw new Error('Firebase failed to load');
+    // Firebase SDK failed to load — form is already visible, user can still try
+    console.error('Firebase SDK failed to load. Check network or CDN.');
+    return;
   }
-  auth.onAuthStateChanged((user) => {
-    authCheckSettled = true;
-    clearTimeout(authCheckTimeout);
-    if (user){
+  // Unsubscribe immediately after first call — we only need to check once on load
+  const unsub = auth.onAuthStateChanged((user) => {
+    unsub(); // stop listening after first response
+    if (user) {
       window.location.href = 'dashboard.html';
-    } else {
-      goToStage('stage-signin');
     }
-  }, (err) => {
-    // onAuthStateChanged error callback (rare, but possible)
-    authCheckSettled = true;
-    clearTimeout(authCheckTimeout);
-    console.error('Auth state error:', err);
-    showStuckError('Could not verify your session. Please try again.');
+    // else: user is not signed in — sign-in form is already visible, do nothing
   });
-} catch (err) {
-  authCheckSettled = true;
-  clearTimeout(authCheckTimeout);
-  console.error('Firebase init error:', err);
-  showStuckError('Could not connect to the server. Please refresh the page.');
+});
+
+/* Enter-key submits the active stage's form */
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  if (!document.getElementById('stage-signin').classList.contains('hidden')) handleSignIn();
+  else if (!document.getElementById('stage-signup').classList.contains('hidden')) handleSignUp();
+  else if (!document.getElementById('stage-forgot').classList.contains('hidden')) handleForgotPassword();
+});
+</script>
+
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault — Sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+
+<!-- Firebase SDKs (compat build) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+<style>
+  :root{
+    --bg-0:#08080a;
+    --bg-1:#101013;
+    --surface-1:#15151a;
+    --surface-2:#1c1c22;
+    --surface-glass: rgba(255,255,255,0.035);
+    --border-hair: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.16);
+    --grey-1:#9a9aa1;
+    --grey-2:#6e6e76;
+    --grey-3:#46464d;
+    --text-0:#f1f1f3;
+    --text-1:#b9b9c0;
+    --text-2:#7c7c84;
+    --accent:#8c97a3;
+    --accent-dim: rgba(140,151,163,0.18);
+    --danger:#c97a72;
+    --danger-dim: rgba(201,122,114,0.14);
+    --success:#7fae8e;
+    --radius-lg:20px;
+    --radius-md:14px;
+    --radius-sm:10px;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    min-height:100vh;
+    background:var(--bg-0);
+    font-family:var(--font-body);
+    color:var(--text-0);
+  }
+
+  body{
+    position:relative;
+    overflow-x:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+
+  .grid-bg{
+    position:fixed;
+    inset:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size:42px 42px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, black 0%, transparent 75%);
+    z-index:0;
+  }
+
+  .glow{
+    position:fixed;
+    width:560px;
+    height:560px;
+    top:-180px;
+    left:50%;
+    transform:translateX(-50%);
+    background:radial-gradient(circle, rgba(140,151,163,0.10), transparent 70%);
+    z-index:0;
+    pointer-events:none;
+  }
+
+  .wrap{
+    position:relative;
+    z-index:1;
+    width:100%;
+    max-width:420px;
+  }
+
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    justify-content:center;
+    margin-bottom:36px;
+  }
+
+  .brand-mark{
+    width:34px;
+    height:34px;
+    border-radius:9px;
+    background:linear-gradient(155deg, var(--surface-2), var(--surface-1));
+    border:0.5px solid var(--border-strong);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .brand-mark svg{ width:16px; height:16px; }
+
+  .brand-name{
+    font-family:var(--font-display);
+    font-weight:500;
+    font-size:18px;
+    letter-spacing:0.01em;
+  }
+
+  .panel{
+    background:var(--surface-glass);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border:0.5px solid var(--border-hair);
+    border-radius:var(--radius-lg);
+    padding:38px 34px 32px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.04) inset,
+      0 24px 60px -20px rgba(0,0,0,0.6);
+  }
+
+  .panel-head{
+    text-align:center;
+    margin-bottom:28px;
+  }
+
+  .panel-head h1{
+    font-family:var(--font-display);
+    font-size:21px;
+    font-weight:500;
+    margin:0 0 6px;
+    color:var(--text-0);
+  }
+
+  .panel-head p{
+    font-size:13.5px;
+    color:var(--text-2);
+    margin:0;
+    line-height:1.6;
+  }
+
+  .stage{ display:block; filter:blur(0); opacity:1; transition:filter .16s ease, opacity .16s ease; }
+  .stage.hidden{ display:none; }
+  .stage.stage-enter{ filter:blur(6px); opacity:0; }
+
+  .field-label{
+    display:block;
+    font-size:12px;
+    color:var(--text-1);
+    margin-bottom:9px;
+    letter-spacing:0.01em;
+  }
+
+  .input-row{
+    position:relative;
+    margin-bottom:16px;
+  }
+
+  .input-row input[type="email"],
+  .input-row input[type="password"],
+  .input-row input[type="text"]{
+    width:100%;
+    background:rgba(255,255,255,0.025);
+    border:0.5px solid var(--border-hair);
+    border-radius:var(--radius-sm);
+    padding:13px 14px;
+    font-size:14.5px;
+    color:var(--text-0);
+    font-family:var(--font-body);
+    outline:none;
+    transition:border-color .15s ease, background .15s ease;
+  }
+
+  .input-row input::placeholder{ color:var(--text-2); }
+
+  .input-row input:focus{
+    border-color:var(--border-strong);
+    background:rgba(255,255,255,0.045);
+  }
+
+  .input-row input.error{ border-color:var(--danger); }
+
+  .pw-input-row{ position:relative; }
+  .pw-toggle{
+    position:absolute; right:10px; top:50%; transform:translateY(-50%);
+    width:26px; height:26px; border-radius:6px;
+    background:none; border:none; color:var(--text-2); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .pw-toggle:hover{ color:var(--text-0); }
+  .pw-toggle svg{ width:15px; height:15px; }
+
+  .forgot-link{
+    display:block;
+    text-align:right;
+    font-size:12px;
+    color:var(--text-2);
+    cursor:pointer;
+    margin:-6px 0 18px;
+  }
+  .forgot-link:hover{ color:var(--text-1); }
+
+  .btn-primary{
+    width:100%;
+    padding:13px 0;
+    border-radius:var(--radius-sm);
+    border:0.5px solid var(--border-strong);
+    background:linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.025));
+    color:var(--text-0);
+    font-family:var(--font-body);
+    font-size:14px;
+    font-weight:500;
+    letter-spacing:0.01em;
+    cursor:pointer;
+    transition:transform .12s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
+  }
+
+  .btn-primary:hover{
+    border-color:rgba(255,255,255,0.28);
+    background:linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0.04));
+  }
+
+  .btn-primary:active{ transform:scale(0.985); }
+  .btn-primary:disabled{ opacity:0.5; cursor:not-allowed; transform:none; }
+
+  .status-msg{
+    text-align:center;
+    font-size:13px;
+    margin-bottom:18px;
+    line-height:1.6;
+  }
+  .status-msg.error{ color:var(--danger); }
+  .status-msg.success{ color:var(--success); }
+  .status-msg.hidden{ display:none; }
+
+  .sent-icon{
+    width:54px; height:54px;
+    border-radius:50%;
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid var(--border-hair);
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto 18px;
+  }
+  .sent-icon svg{ width:24px; height:24px; color:var(--accent); }
+
+  .switch-row{
+    text-align:center;
+    margin-top:22px;
+    font-size:12.5px;
+    color:var(--text-2);
+  }
+  .switch-row a{
+    color:var(--grey-1);
+    cursor:pointer;
+    text-decoration:underline;
+    text-decoration-color:rgba(255,255,255,0.2);
+  }
+  .switch-row a:hover{ color:var(--text-0); }
+
+  .back-link{
+    display:block;
+    text-align:center;
+    margin-top:22px;
+    font-size:12.5px;
+    color:var(--text-2);
+    cursor:pointer;
+  }
+  .back-link:hover{ color:var(--text-1); }
+
+  .footnote{
+    text-align:center;
+    margin-top:22px;
+    font-size:11.5px;
+    color:var(--grey-3);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+  }
+  .footnote svg{ width:11px; height:11px; opacity:0.7; }
+
+  .spinner{
+    width:14px; height:14px;
+    border-radius:50%;
+    border:2px solid rgba(255,255,255,0.25);
+    border-top-color:var(--text-0);
+    display:inline-block;
+    animation:spin .7s linear infinite;
+    vertical-align:middle;
+    margin-right:7px;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .hint{ font-size:11.5px; color:var(--text-2); margin:-10px 0 16px; line-height:1.5; }
+
+  @media (max-width:420px){
+    .panel{ padding:30px 22px 26px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="glow"></div>
+
+<div class="wrap">
+
+  <div class="brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#e8e8ea" stroke-width="1.6"><path d="M12 2L4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6l-8-4z"/></svg>
+    </div>
+    <div class="brand-name">Vault</div>
+  </div>
+
+  <div class="panel">
+
+    <!-- STAGE 1: SIGN IN -->
+    <div class="stage" id="stage-signin">
+      <div class="panel-head">
+        <h1>Sign in</h1>
+        <p>Welcome back. Enter your email and password.</p>
+      </div>
+
+      <div class="status-msg hidden" id="signin-status"></div>
+
+      <label class="field-label" for="signin-email">Email address</label>
+      <div class="input-row">
+        <input type="email" id="signin-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+
+      <label class="field-label" for="signin-password">Password</label>
+      <div class="input-row pw-input-row">
+        <input type="password" id="signin-password" placeholder="Enter password" autocomplete="current-password">
+        <button class="pw-toggle" type="button" onclick="togglePw('signin-password', this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="forgot-link" onclick="goToStage('stage-forgot')">Forgot password?</div>
+
+      <button class="btn-primary" id="signin-btn" onclick="handleSignIn()">Sign in</button>
+
+      <div class="switch-row">Don't have an account? <a onclick="goToStage('stage-signup')">Create one</a></div>
+
+      <div class="footnote">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        Secured by Firebase Authentication.
+      </div>
+    </div>
+
+    <!-- STAGE 2: CREATE ACCOUNT -->
+    <div class="stage hidden" id="stage-signup">
+      <div class="panel-head">
+        <h1>Create account</h1>
+        <p>Set up your vault with an email and password.</p>
+      </div>
+
+      <div class="status-msg hidden" id="signup-status"></div>
+
+      <label class="field-label" for="signup-email">Email address</label>
+      <div class="input-row">
+        <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+
+      <label class="field-label" for="signup-password">Password</label>
+      <div class="input-row pw-input-row">
+        <input type="password" id="signup-password" placeholder="At least 6 characters" autocomplete="new-password">
+        <button class="pw-toggle" type="button" onclick="togglePw('signup-password', this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+
+      <label class="field-label" for="signup-password-confirm">Confirm password</label>
+      <div class="input-row pw-input-row">
+        <input type="password" id="signup-password-confirm" placeholder="Re-enter password" autocomplete="new-password">
+        <button class="pw-toggle" type="button" onclick="togglePw('signup-password-confirm', this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+
+      <button class="btn-primary" id="signup-btn" onclick="handleSignUp()">Create account</button>
+
+      <div class="switch-row">Already have an account? <a onclick="goToStage('stage-signin')">Sign in</a></div>
+    </div>
+
+    <!-- STAGE 3: FORGOT PASSWORD -->
+    <div class="stage hidden" id="stage-forgot">
+      <div class="panel-head">
+        <h1>Reset password</h1>
+        <p>Enter your email and we'll send a reset link.</p>
+      </div>
+
+      <div class="status-msg hidden" id="forgot-status"></div>
+
+      <label class="field-label" for="forgot-email">Email address</label>
+      <div class="input-row">
+        <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+
+      <button class="btn-primary" id="forgot-btn" onclick="handleForgotPassword()">Send reset link</button>
+
+      <div class="back-link" onclick="goToStage('stage-signin')">Back to sign in</div>
+    </div>
+
+    <!-- STAGE 4: RESET LINK SENT -->
+    <div class="stage hidden" id="stage-reset-sent">
+      <div class="sent-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 6l10 7 10-7"/></svg>
+      </div>
+      <div class="panel-head">
+        <h1>Check your email</h1>
+        <p>We sent a password reset link to <b id="reset-email-display" style="color:var(--text-1);"></b>.</p>
+      </div>
+      <div class="back-link" onclick="goToStage('stage-signin')">Back to sign in</div>
+    </div>
+
+    <!-- STAGE 5: checking existing session on page load -->
+  </div>
+</div>
+
+<script src="firebase-config.js"></script>
+<script>
+function goToStage(name){
+  const target = document.getElementById(name);
+  const allIds = ['stage-signin','stage-signup','stage-forgot','stage-reset-sent'];
+
+  // Start the new stage blurred+transparent, show it, then let CSS transition it in.
+  target.classList.add('stage-enter');
+  allIds.forEach(id => {
+    document.getElementById(id).classList.toggle('hidden', id !== name);
+  });
+  // Force a reflow so the browser registers the "blurred" starting state
+  // before we remove it — otherwise the transition wouldn't be visible.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      target.classList.remove('stage-enter');
+    });
+  });
 }
+
+function setStatus(scope, msg, type){
+  const el = document.getElementById(scope + '-status');
+  el.textContent = msg;
+  el.className = 'status-msg' + (type ? ' ' + type : '') + (msg ? '' : ' hidden');
+}
+
+function isValidEmail(v){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
+function togglePw(id, btn){
+  const input = document.getElementById(id);
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function humanizeAuthError(err){
+  const code = err && err.code;
+  const map = {
+    'auth/invalid-email': 'That email address looks invalid.',
+    'auth/user-not-found': 'No account found with that email.',
+    'auth/wrong-password': 'Incorrect password. Try again.',
+    'auth/invalid-credential': 'Incorrect email or password.',
+    'auth/too-many-requests': 'Too many attempts. Please wait a moment and try again.',
+    'auth/email-already-in-use': 'An account with that email already exists.',
+    'auth/weak-password': 'Password should be at least 6 characters.',
+    'auth/network-request-failed': 'Network error. Check your connection and try again.'
+  };
+  return map[code] || 'Something went wrong. Please try again.';
+}
+
+/* ============================================================
+   SIGN IN
+   ============================================================ */
+function handleSignIn(){
+  const email = document.getElementById('signin-email').value.trim();
+  const password = document.getElementById('signin-password').value;
+
+  if (!isValidEmail(email)){ setStatus('signin', 'Please enter a valid email address.', 'error'); return; }
+  if (!password){ setStatus('signin', 'Please enter your password.', 'error'); return; }
+
+  setStatus('signin', '');
+  const btn = document.getElementById('signin-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Signing in…';
+
+  auth.signInWithEmailAndPassword(email, password)
+    .then(() => {
+      window.location.href = 'dashboard.html';
+    })
+    .catch((err) => {
+      console.error(err);
+      setStatus('signin', humanizeAuthError(err), 'error');
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    });
+}
+
+/* ============================================================
+   CREATE ACCOUNT
+   ============================================================ */
+function handleSignUp(){
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const confirm = document.getElementById('signup-password-confirm').value;
+
+  if (!isValidEmail(email)){ setStatus('signup', 'Please enter a valid email address.', 'error'); return; }
+  if (password.length < 6){ setStatus('signup', 'Password must be at least 6 characters.', 'error'); return; }
+  if (password !== confirm){ setStatus('signup', 'Passwords do not match.', 'error'); return; }
+
+  setStatus('signup', '');
+  const btn = document.getElementById('signup-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Creating account…';
+
+  auth.createUserWithEmailAndPassword(email, password)
+    .then(() => {
+      window.location.href = 'dashboard.html';
+    })
+    .catch((err) => {
+      console.error(err);
+      setStatus('signup', humanizeAuthError(err), 'error');
+      btn.disabled = false;
+      btn.textContent = 'Create account';
+    });
+}
+
+/* ============================================================
+   FORGOT PASSWORD
+   ============================================================ */
+function handleForgotPassword(){
+  const email = document.getElementById('forgot-email').value.trim();
+  if (!isValidEmail(email)){ setStatus('forgot', 'Please enter a valid email address.', 'error'); return; }
+
+  setStatus('forgot', '');
+  const btn = document.getElementById('forgot-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Sending…';
+
+  auth.sendPasswordResetEmail(email)
+    .then(() => {
+      document.getElementById('reset-email-display').textContent = email;
+      goToStage('stage-reset-sent');
+    })
+    .catch((err) => {
+      console.error(err);
+      setStatus('forgot', humanizeAuthError(err), 'error');
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = 'Send reset link';
+    });
+}
+
+/* ============================================================
+   ON LOAD — if already signed in, redirect silently to dashboard.
+   Sign-in form is shown by default (no checking screen).
+   Firebase auth check happens in the background.
+   ============================================================ */
+window.addEventListener('load', function() {
+  if (typeof firebase === 'undefined' || typeof auth === 'undefined') {
+    // Firebase SDK failed to load — form is already visible, user can still try
+    console.error('Firebase SDK failed to load. Check network or CDN.');
+    return;
+  }
+  // Unsubscribe immediately after first call — we only need to check once on load
+  const unsub = auth.onAuthStateChanged((user) => {
+    unsub(); // stop listening after first response
+    if (user) {
+      window.location.href = 'dashboard.html';
+    }
+    // else: user is not signed in — sign-in form is already visible, do nothing
+  });
+});
 
 /* Enter-key submits the active stage's form */
 document.addEventListener('keydown', (e) => {
