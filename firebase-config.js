@@ -59,10 +59,21 @@ function userFoldersRef() {
   return db.collection('vaults').doc(uid).collection('folders');
 }
 
-/** Real-time listener for all items. callback(itemsArray) fires on every change. */
+/** Real-time listener for all items. callback(itemsArray) fires on every change.
+ *  NOTE: we intentionally do NOT use Firestore's orderBy('updatedAt') here.
+ *  updatedAt is written with serverTimestamp(), which is null in the local
+ *  cache until the server acknowledges the write. Firestore can exclude
+ *  documents whose orderBy field is null/pending from the live result set,
+ *  which made newly-saved items flash in and then disappear. Sorting
+ *  client-side avoids that entirely. */
 function watchItems(callback) {
-  return userItemsRef().orderBy('updatedAt', 'desc').onSnapshot((snap) => {
+  return userItemsRef().onSnapshot((snap) => {
     const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    items.sort((a, b) => {
+      const ta = a.updatedAt && a.updatedAt.toMillis ? a.updatedAt.toMillis() : 0;
+      const tb = b.updatedAt && b.updatedAt.toMillis ? b.updatedAt.toMillis() : 0;
+      return tb - ta;
+    });
     callback(items);
   }, (err) => console.error('watchItems error:', err));
 }
