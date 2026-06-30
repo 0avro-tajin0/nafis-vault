@@ -494,7 +494,10 @@ function handleSignIn(){
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Signing in…';
 
-  auth.signInWithEmailAndPassword(email, password)
+  // Ensure persistence mode is fully applied before signing in,
+  // to avoid any race condition between the two async calls.
+  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+    .then(() => auth.signInWithEmailAndPassword(email, password))
     .then(() => {
       window.location.href = 'dashboard.html';
     })
@@ -523,7 +526,8 @@ function handleSignUp(){
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Creating account…';
 
-  auth.createUserWithEmailAndPassword(email, password)
+  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+    .then(() => auth.createUserWithEmailAndPassword(email, password))
     .then(() => {
       window.location.href = 'dashboard.html';
     })
