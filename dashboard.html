@@ -525,7 +525,7 @@
 
   <div class="search-box">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-    <input type="text" id="sidebar-search" placeholder="Search vault..." oninput="syncSearchInputs(this.value)">
+    <input type="text" id="sidebar-search" name="vault-search-sidebar" placeholder="Search vault..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" oninput="syncSearchInputs(this.value)">
   </div>
 
   <div class="nav-section">
@@ -591,7 +591,7 @@
   <div class="main-search-row">
     <div class="main-search-box">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-      <input type="text" id="main-search" placeholder="Search by name, username, folder…" oninput="syncSearchInputs(this.value); toggleSearchClear();">
+      <input type="text" id="main-search" name="vault-search-main" placeholder="Search by name, username, folder…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" oninput="syncSearchInputs(this.value); toggleSearchClear();">
       <button class="main-search-clear" id="search-clear" onclick="clearSearch()" title="Clear">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
@@ -856,6 +856,7 @@ function startListeners(){
     state.items = items;
     renderItems();
     renderStats();
+    renderFolders(); // counts depend on items, so recalc here too
   });
 }
 
