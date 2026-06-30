@@ -517,6 +517,20 @@
 </head>
 <body>
 
+<!-- Decoy login fields, intentionally off-screen (not display:none, which
+     some browsers ignore for this purpose). Chrome's password-manager
+     heuristics scan the whole page for a text-input + password-input pair
+     to treat as "the login form" and will offer saved credentials on
+     whichever pair looks most plausible. Without this, the search box
+     above gets mistaken for a username field because the hidden "Add
+     password" modal contains a real <input type="password"> further down
+     the DOM. These two fields give the browser an unambiguous, better
+     match to attach the saved-password suggestion to instead — keeping it
+     off the search box entirely. They are never read or submitted by our
+     code. -->
+<input type="text" name="username" autocomplete="username" tabindex="-1" aria-hidden="true" style="position:absolute; width:1px; height:1px; padding:0; margin:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; left:-9999px;">
+<input type="password" name="password" autocomplete="current-password" tabindex="-1" aria-hidden="true" style="position:absolute; width:1px; height:1px; padding:0; margin:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; left:-9999px;">
+
 <!-- Shown until Firebase tells us whether the user is signed in -->
 
 <div class="grid-bg"></div>
@@ -676,7 +690,7 @@
     <div class="form-group"><label>Title</label><input type="text" id="pw-title" placeholder="e.g. Gmail — Main"></div>
     <div class="form-group"><label>Website or app</label><input type="text" id="pw-url" placeholder="e.g. gmail.com"></div>
     <div class="form-group"><label>Username or email</label><input type="text" id="pw-username" placeholder="e.g. nafis.tazin@gmail.com"></div>
-    <div class="form-group"><label>Password</label><div class="pw-input-row"><input type="password" id="pw-input-1" placeholder="Enter password"><button class="pw-toggle" onclick="togglePw('pw-input-1',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="form-group"><label>Password</label><div class="pw-input-row"><input type="password" id="pw-input-1" name="vault-item-password" autocomplete="new-password" placeholder="Enter password"><button class="pw-toggle" onclick="togglePw('pw-input-1',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
     <div class="form-group"><label>Notes (optional)</label><textarea id="pw-notes" rows="2" placeholder="Any extra info"></textarea></div>
     <div class="form-group"><label>Folder</label><select id="pw-folder"></select></div>
     <div class="panel-actions"><button class="btn-ghost" onclick="closePanels()">Cancel</button><button class="btn-solid" id="pw-save-btn" onclick="handleSavePassword()">Save password</button></div>
@@ -706,8 +720,8 @@
     <p class="desc">Save a debit/credit card, ATM PIN, or CVV.</p>
     <div class="form-group"><label>Title</label><input type="text" id="card-title" placeholder="e.g. City Bank — Debit card"></div>
     <div class="form-group"><label>Card number (optional, last 4 shown)</label><input type="text" id="card-sub" placeholder="e.g. **** **** **** 4471"></div>
-    <div class="form-group"><label>PIN</label><div class="pw-input-row"><input type="password" id="card-pin" placeholder="Enter PIN"><button class="pw-toggle" onclick="togglePw('card-pin',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
-    <div class="form-group"><label>CVV</label><div class="pw-input-row"><input type="password" id="card-cvv" placeholder="Enter CVV"><button class="pw-toggle" onclick="togglePw('card-cvv',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="form-group"><label>PIN</label><div class="pw-input-row"><input type="password" id="card-pin" name="vault-item-pin" autocomplete="new-password" placeholder="Enter PIN"><button class="pw-toggle" onclick="togglePw('card-pin',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="form-group"><label>CVV</label><div class="pw-input-row"><input type="password" id="card-cvv" name="vault-item-cvv" autocomplete="new-password" placeholder="Enter CVV"><button class="pw-toggle" onclick="togglePw('card-cvv',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
     <div class="form-group"><label>Bank website (optional)</label><input type="text" id="card-url" placeholder="e.g. citybank.com.bd"></div>
     <div class="form-group"><label>Notes (optional)</label><textarea id="card-notes" rows="2" placeholder="e.g. Expires 12/27"></textarea></div>
     <div class="form-group"><label>Folder</label><select id="card-folder"></select></div>
