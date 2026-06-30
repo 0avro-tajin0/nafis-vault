@@ -567,24 +567,11 @@ function handleForgotPassword(){
    Sign-in form is shown by default (no checking screen).
    Firebase auth check happens in the background.
    ============================================================ */
-window.addEventListener('load', function() {
-  if (typeof firebase === 'undefined' || typeof auth === 'undefined') {
-    console.error('Firebase SDK failed to load. Check network or CDN.');
-    return;
-  }
-  const unsub = auth.onAuthStateChanged((user) => {
-    unsub();
-    if (user) {
-      // Already signed in (Firebase persists sessions across tabs/reloads).
-      // Show a brief notice instead of silently jumping, so it's clear why.
-      const panel = document.querySelector('.panel');
-      panel.style.opacity = '0.5';
-      panel.style.pointerEvents = 'none';
-      setStatus('signin', 'Already signed in as ' + user.email + ' — opening vault…', 'success');
-      setTimeout(() => { window.location.href = 'dashboard.html'; }, 700);
-    }
-  });
-});
+/* ============================================================
+   Session persistence is set to NONE (see firebase-config.js),
+   so there is no stored session to auto-redirect from — the
+   sign-in form is always shown fresh on every page load.
+   ============================================================ */
 
 /* Enter-key submits the active stage's form */
 document.addEventListener('keydown', (e) => {
