@@ -16,6 +16,15 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 /* ============================================================
+   SESSION PERSISTENCE — set to NONE so login never survives a
+   page reload, new tab, or browser restart. Every visit to the
+   site requires signing in again with email + password.
+   ============================================================ */
+auth.setPersistence(firebase.auth.Auth.Persistence.NONE).catch((err) => {
+  console.error('Failed to set auth persistence:', err);
+});
+
+/* ============================================================
    EMAIL + PASSWORD AUTH HELPERS
    Sign in / sign up / forgot-password are called directly via
    auth.signInWithEmailAndPassword() etc. from index.html.
